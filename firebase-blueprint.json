@@ -1,0 +1,217 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A luxury perfume or curated multi-bottle offer pack available in the Moroccan storefront.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Arabic display title of the perfume or offer pack."
+        },
+        "subtitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Short subtitle such as concentration and bottle volume."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1500,
+          "description": "Detailed Arabic description of the fragrance."
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Fragrance olfactory notes."
+        },
+        "features": {
+          "type": "array",
+          "description": "List of up to 8 key product highlights."
+        },
+        "priceMad": {
+          "type": "number",
+          "description": "Current price in Moroccan Dirhams (MAD)."
+        },
+        "compareAtPriceMad": {
+          "type": "number",
+          "description": "Optional original price before bundle discount in MAD."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["single", "pack_2", "pack_3", "pack_4"],
+          "description": "Product format: single bottle or 2/3/4 perfume bundle."
+        },
+        "bottleCount": {
+          "type": "number",
+          "description": "Number of bottles included (1 to 4)."
+        },
+        "volumeMl": {
+          "type": "number",
+          "description": "Volume per bottle in milliliters."
+        },
+        "imageUrl": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "Public URL or local bundled asset path for the perfume image."
+        },
+        "isBestSeller": {
+          "type": "boolean",
+          "description": "Whether the product is highlighted in best sellers."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Controls storefront visibility."
+        },
+        "sortOrder": {
+          "type": "number",
+          "description": "Display ordering index."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "name",
+        "subtitle",
+        "description",
+        "notes",
+        "features",
+        "priceMad",
+        "category",
+        "bottleCount",
+        "volumeMl",
+        "imageUrl",
+        "isBestSeller",
+        "isActive",
+        "sortOrder",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A Cash-on-Delivery customer order containing Moroccan customer PII strictly restricted to store admins for read/update/delete.",
+      "type": "object",
+      "properties": {
+        "fullName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100,
+          "description": "Customer full name."
+        },
+        "city": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Moroccan delivery city."
+        },
+        "phone": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 20,
+          "pattern": "^[0-9+\\-\\s()]{8,20}$",
+          "description": "Moroccan customer phone number."
+        },
+        "productId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Selected product or bundle ID."
+        },
+        "productName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 150,
+          "description": "Selected product or offer name."
+        },
+        "productCategory": {
+          "type": "string",
+          "enum": ["single", "pack_2", "pack_3", "pack_4"],
+          "description": "Category of the ordered product or bundle."
+        },
+        "priceMad": {
+          "type": "number",
+          "description": "Order total in MAD."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["cod"],
+          "description": "Always Cash on Delivery (cod)."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["new", "confirmed", "shipped", "delivered", "cancelled"],
+          "description": "Fulfillment workflow status."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "fullName",
+        "city",
+        "phone",
+        "productId",
+        "productName",
+        "productCategory",
+        "priceMad",
+        "paymentMethod",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized store administrator record keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 120
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["email", "role", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Publicly readable active perfume catalog and offer packs; writable only by verified store admins."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Customer COD orders. Publicly creatable without login using strict schema validation; read/list/update/delete strictly restricted to verified admins to protect customer PII."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Store admin allowlist documents."
+    }
+  }
+}

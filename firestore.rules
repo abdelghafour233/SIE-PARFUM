@@ -1,0 +1,218 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isRootAdminEmail() {
+      return isEmailVerified() && request.auth.token.email == 'abdelghaforbahaddou@gmail.com';
+    }
+
+    function isAdmin() {
+      return isRootAdminEmail() || (
+        isEmailVerified() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll([
+        'name',
+        'subtitle',
+        'description',
+        'notes',
+        'features',
+        'priceMad',
+        'category',
+        'bottleCount',
+        'volumeMl',
+        'imageUrl',
+        'isBestSeller',
+        'isActive',
+        'sortOrder',
+        'createdAt',
+        'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'name',
+        'subtitle',
+        'description',
+        'notes',
+        'features',
+        'priceMad',
+        'compareAtPriceMad',
+        'category',
+        'bottleCount',
+        'volumeMl',
+        'imageUrl',
+        'isBestSeller',
+        'isActive',
+        'sortOrder',
+        'createdAt',
+        'updatedAt'
+      ])
+      && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+      && data.subtitle is string && data.subtitle.size() >= 1 && data.subtitle.size() <= 120
+      && data.description is string && data.description.size() >= 1 && data.description.size() <= 1500
+      && data.notes is string && data.notes.size() >= 1 && data.notes.size() <= 200
+      && data.features is list && data.features.size() >= 1 && data.features.size() <= 8
+      && data.features[0] is string && data.features[0].size() >= 1 && data.features[0].size() <= 120
+      && data.priceMad is number && data.priceMad > 0 && data.priceMad <= 50000
+      && (!('compareAtPriceMad' in data) || (data.compareAtPriceMad is number && data.compareAtPriceMad >= 0 && data.compareAtPriceMad <= 100000))
+      && data.category in ['single', 'pack_2', 'pack_3', 'pack_4']
+      && data.bottleCount is int && data.bottleCount >= 1 && data.bottleCount <= 4
+      && data.volumeMl is int && data.volumeMl >= 10 && data.volumeMl <= 500
+      && data.imageUrl is string && data.imageUrl.size() >= 1 && data.imageUrl.size() <= 1000
+      && data.isBestSeller is bool
+      && data.isActive is bool
+      && data.sortOrder is int && data.sortOrder >= 0 && data.sortOrder <= 10000
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+        'fullName',
+        'city',
+        'phone',
+        'productId',
+        'productName',
+        'productCategory',
+        'priceMad',
+        'paymentMethod',
+        'status',
+        'createdAt',
+        'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'fullName',
+        'city',
+        'phone',
+        'productId',
+        'productName',
+        'productCategory',
+        'priceMad',
+        'paymentMethod',
+        'status',
+        'createdAt',
+        'updatedAt'
+      ])
+      && data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 100
+      && data.city is string && data.city.size() >= 2 && data.city.size() <= 80
+      && data.phone is string && data.phone.size() >= 8 && data.phone.size() <= 20
+      && data.phone.matches('^[0-9+\\-\\s()]{8,20}$')
+      && isValidId(data.productId)
+      && data.productName is string && data.productName.size() >= 1 && data.productName.size() <= 150
+      && data.productCategory in ['single', 'pack_2', 'pack_3', 'pack_4']
+      && data.priceMad is number && data.priceMad > 0 && data.priceMad <= 50000
+      && data.paymentMethod == 'cod'
+      && data.status in ['new', 'confirmed', 'shipped', 'delivered', 'cancelled']
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidAdmin(data) {
+      return data.keys().hasAll(['email', 'role', 'createdAt'])
+      && data.keys().hasOnly(['email', 'role', 'createdAt'])
+      && data.email is string && data.email.size() >= 3 && data.email.size() <= 120
+      && data.role == 'admin'
+      && data.createdAt is timestamp;
+    }
+
+    // Boot connection check document (read-only ping)
+    match /test/connection {
+      allow get: if true;
+    }
+
+    // Public catalog of perfumes & offer packs
+    match /products/{productId} {
+      allow get: if isValidId(productId) && (existing().isActive == true || isAdmin());
+      allow list: if existing().isActive == true || isRootAdminEmail();
+      allow create: if isAdmin()
+        && isValidId(productId)
+        && isValidProduct(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(productId)
+        && isValidProduct(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'name',
+          'subtitle',
+          'description',
+          'notes',
+          'features',
+          'priceMad',
+          'compareAtPriceMad',
+          'category',
+          'bottleCount',
+          'volumeMl',
+          'imageUrl',
+          'isBestSeller',
+          'isActive',
+          'sortOrder',
+          'updatedAt'
+        ]);
+      allow delete: if isAdmin() && isValidId(productId);
+    }
+
+    // Customer COD orders (PII isolated to verified admins for read/update/delete)
+    match /orders/{orderId} {
+      allow get: if isAdmin() && isValidId(orderId);
+      allow list: if isRootAdminEmail() && existing().paymentMethod == 'cod';
+      allow create: if isValidId(orderId)
+        && isValidOrder(incoming())
+        && incoming().status == 'new'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(orderId)
+        && isValidOrder(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(orderId);
+    }
+
+    // Admin registry
+    match /admins/{adminId} {
+      allow get: if isValidId(adminId) && (isRootAdminEmail() || (isEmailVerified() && request.auth.uid == adminId));
+      allow list: if isRootAdminEmail() && existing().role == 'admin';
+      allow create: if isRootAdminEmail()
+        && isValidId(adminId)
+        && isValidAdmin(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if isRootAdminEmail()
+        && isValidId(adminId)
+        && isValidAdmin(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'role']);
+      allow delete: if isRootAdminEmail() && isValidId(adminId);
+    }
+  }
+}

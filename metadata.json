@@ -1,0 +1,6 @@
+{
+  "name": "دار العنبر — Dar Al-Anbar",
+  "description": "متجر إلكتروني فاخر للعطور في المغرب مع الدفع عند الاستلام والتوصيل لجميع المدن المغربية بالدرهم المغربي",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
